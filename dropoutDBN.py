@@ -16,9 +16,8 @@ import theano.tensor as T
 from theano.sandbox.rng_mrg import MRG_RandomStreams as RandomStreams
 from logistic_sgd import LogisticRegression, load_data
 from dropoutmlp import HiddenLayer,DropoutHiddenLayer,_drop_out_from_layer, \
-    get_act_function, load_mnist_data
+    get_act_function, load_mnist_data, AddLayer
 from rbm import RBM
-from load_data import load_mnist
 import theano.printing
 import argparse
 import copy
@@ -79,36 +78,40 @@ class DBN(object):
                 layer_input = self.layers[-1].output      
                 dropout_layer_input = self.dropout_layers[-1].output
 
-            print >> stderr, "build %dth dropout layer, input size: %d, output size: %d" \
-                % (i, input_size, hidden_layers_sizes[i])
+            print("build %dth dropout layer, input size: %d, output size: %d" \
+                % (i, input_size, hidden_layers_sizes[i]))
 
-            next_dropout_layer=DropoutHiddenLayer(rng=numpy_rng,
+#            next_dropout_layer=DropoutHiddenLayer(rng=numpy_rng,
+            next_dropout_layer=AddLayer(rng=numpy_rng,
                                              input=dropout_layer_input,
                                              n_in=input_size,
                                              n_out=hidden_layers_sizes[i], 
-                                             args = args)
+                                             args = args,
+                                             type=args.layer_type)
 
             self.dropout_layers.append(next_dropout_layer)
-            print >> stderr, "build %dth normal layer, input size: %d, output size: %d" \
-                % (i, input_size, hidden_layers_sizes[i])
+            print("build %dth normal layer, input size: %d, output size: %d" \
+                % (i, input_size, hidden_layers_sizes[i]))
             if i==0:
-                next_layer = HiddenLayer(rng=numpy_rng,
+#                next_layer = HiddenLayer(rng=numpy_rng,
+                next_layer = AddLayer(rng=numpy_rng,
                                 input=layer_input,
                                 n_in=input_size,
                                 n_out=hidden_layers_sizes[i],
                                 W=next_dropout_layer.W * 0.8 if drop_input else 1.,
                                 b=next_dropout_layer.b,
                                 args = args,
-                                rbm = rbm)            
+                                type = 'hidden')            
             else:
-                next_layer = HiddenLayer(rng=numpy_rng,
+#                next_layer = HiddenLayer(rng=numpy_rng,
+                next_layer = AddLayer(rng=numpy_rng,
                                 input=layer_input,
                                 n_in=input_size,
                                 n_out=hidden_layers_sizes[i],
                                 W=next_dropout_layer.W * 0.5,
                                 b=next_dropout_layer.b,
                                 args = args,
-                                rbm = rbm)            
+                                type = 'hidden')            
 
             # add the layer to our list of layers
             self.layers.append(next_layer)       
@@ -274,7 +277,7 @@ def test_DBN(finetune_lr=1.0, pretraining_epochs=100,
     result_file_path = results_file_name + layers_str
     result_file = open(result_file_path,'w')
     configure = 'configer: '+str(training_epochs)+' epoch for finetune, layers '+str(layers)+\
-               ',random seed '+str(seed)+', batch_size_'+str(batch_size)+'.\n'
+               ',random seed '+str(seed)+', batch_size '+str(batch_size)+'.\n'
     result_file.writelines(configure)
 
     datasets = load_mnist_data(dataset)
@@ -302,11 +305,11 @@ def test_DBN(finetune_lr=1.0, pretraining_epochs=100,
     ########################
 
     # get the training, validation and testing function for the model
-    print >> stderr,  '... getting the finetuning functions'
+    print('... getting the finetuning functions')
     train_fn, validate_model, test_model = dbn.build_finetune_functions(
                 datasets, batch_size, finetune_lr, dropout=dropout)
 
-    print  >> stderr, '... finetunning the model'
+    print('... finetunning the model')
     # early-stopping parameters
     patience = 4 * n_train_batches  # look as this many examples regardless
     patience_increase = 2.    # wait this much longer when a new best is
@@ -354,29 +357,30 @@ def test_DBN(finetune_lr=1.0, pretraining_epochs=100,
             test_score = numpy.mean(test_losses)
         result_file.write('{0}\t{1}\n'.format(epoch, this_validation_loss * 100))    
         if epoch % 100 == 0:
-            print >> stderr, epoch
+            print(epoch)
             result_file.flush()
     end_time = time.clock()
-    result_file.close()
     
     print(('Optimization complete with best validation score of %f %%,' \
            'with test performance %f %%''  in epoch %d') %
                  (best_validation_loss * 100., test_score * 100., best_iter))
+    result_file.write('best_test_score:\n{0}\n'.format(test_score * 100))
+    result_file.close()
 
 def get_drop_info(args):
     if args.nodrop:
         return 'no-dropout'
     elif args.drop_type == 'bernoulli':
-        return "_".join([args.act_type, args.drop_type, str(args.p)])
+        return "_".join([args.layer_type, args.act_type, args.drop_type, str(args.p)])
     elif args.drop_type == 'gaussian':
-        info = "_".join([args.act_type, args.drop_type, str(args.mu), str(args.sigma)])
+        info = "_".join([args.layer_type, args.act_type, args.drop_type, str(args.mu), str(args.sigma)])
         if args.noclip:
             info = "_".join([info, 'noclip'])
         return info
     elif args.drop_type == 'uniform':
-        return "_".join([args.act_type, args.drop_type, str(args.a), str(args.b)])
+        return "_".join([args.layer_type, args.act_type, args.drop_type, str(args.a), str(args.b)])
     else:
-        print >> stderr, 'Unknown dropout type'
+        print('Unknown dropout type')
         assert False
 
 def main():
@@ -401,6 +405,9 @@ def main():
             help='if we not clip gaussian to be in [0, 1]')
     parser.add_argument("-num_runs", default=1, type=int, 
             help='number of indepent runs')
+    parser.add_argument("-alpha", default=1, type=float, help='alpha in adaptive dropout')
+    parser.add_argument("-beta", default=0, type=float, help='beta in adaptive dropout')
+    parser.add_argument("-layer_type", default='hidden', type=str, help='hidden layer type')
     args = parser.parse_args()
     dataset = 'data/mnist_batches.npz'
     epoches = 3000

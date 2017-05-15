@@ -32,8 +32,19 @@ def load_mnist_data(dataset):
         assert False
     return datasets
 
+def AddLayer(rng, input, n_in, n_out, W=None, b=None, args = None, type='hidden'):
+    assert type in ['hidden', 'dropout', 'adaptive_dropout', 'dropconnect']
+    if type == 'hidden':
+        return HiddenLayer(rng, input, n_in, n_out, W=W, b=b, args=args)
+    elif type == 'dropout':
+        return DropoutHiddenLayer(rng, input, n_in, n_out, W=W, b=b, args=args)
+    elif type == 'adaptive_dropout':
+        return AdaptiveDropoutHiddenLayer(rng, input, n_in, n_out, W=W, b=b, args=args)
+    else:
+        return DropConnectHiddenLayer(rng, input, n_in, n_out, W=W, b=b, args=args)
+
 class HiddenLayer(object):             #这个类只构造了一层隐层。
-    def __init__(self, rng, input, n_in, n_out, W=None, b=None, args = None, rbm = False):
+    def __init__(self, rng, input, n_in, n_out, W=None, b=None, args = None):
         self.input = input
         activation = get_act_function(args.act_type)
         if W is None:
@@ -59,14 +70,16 @@ class HiddenLayer(object):             #这个类只构造了一层隐层。
         self.params = [self.W, self.b]
 
 def get_act_function(func_name = 'sigmoid'):
-    assert func_name in ['sigmoid', 'relu', 'tanh']
-    print >> sys.stderr, 'activation:', func_name
+    assert func_name in ['sigmoid', 'relu', 'tanh', None]
+    print ('activation: ' + func_name)
     if func_name == 'sigmoid':
         return T.nnet.sigmoid
     elif func_name == 'relu':
         return lambda x: T.maximum(0.0, x)
     elif func_name == 'tanh':
         return T.tanh
+    else:
+        return None
 
 def get_mask(shape, rng, args):
     """ for code briefness, put all parameters into args
@@ -76,16 +89,16 @@ def get_mask(shape, rng, args):
     assert args.drop_type in ['bernoulli', 'gaussian', 'uniform']
     srng = RandomStreams(rng.randint(99999))
     drop_type = args.drop_type
-    print >> sys.stderr, 'dropout_type:', drop_type
+    print('dropout_type: ' + drop_type)
     if drop_type == 'bernoulli':
         return srng.binomial(n = 1, p = 1 - args.p, size = shape)
     elif drop_type == 'gaussian':
         mask = srng.normal(avg  = args.mu, std = args.sigma, size = shape)
         if not args.noclip:
-            print >> sys.stderr, 'clip'
+            print('clip')
             mask = T.clip(mask, 0., 1.)
         else:
-            print >> sys.stderr, 'noclip'
+            print('noclip')
         return  mask
     elif drop_type == 'uniform':
         return srng.uniform(low = args.a, high = args.b, size = shape)
@@ -109,8 +122,9 @@ class DropoutHiddenLayer(HiddenLayer):
 
 class DropConnectHiddenLayer(object):
     def __init__(self, rng, input, n_in, n_out, W=None, b=None,
-                 activation=T.tanh, p = 0.5):
+                 args=None):
         self.input = input
+        activation = get_act_function(args.act_type)
         if W is None:
             W_values = numpy.asarray(rng.uniform(
                     low=-numpy.sqrt(6. / (n_in + n_out)),
@@ -129,7 +143,7 @@ class DropConnectHiddenLayer(object):
         self.W = W
         self.b = b
         srng = RandomStreams(rng.randint(99999))
-        mask = srng.binomial(n=1, p=1-p, size= self.W.shape)
+        mask = srng.binomial(n=1, p=1-args.p, size= self.W.shape)
         mask  =  T.cast(mask, theano.config.floatX)
         dropped_W = self.W * mask
         lin_output = T.dot(input, dropped_W) + self.b
@@ -140,8 +154,9 @@ class DropConnectHiddenLayer(object):
 
 class AdaptiveDropoutHiddenLayer(object):
     def __init__(self, rng, input, n_in, n_out, W=None, b=None,
-                 activation=T.tanh, alpha = 1, beta = 0):
+                 args=None):
         self.input = input
+        activation = get_act_function(args.act_type)
         if W is None:
             W_values = numpy.asarray(rng.uniform(
                     low=-numpy.sqrt(6. / (n_in + n_out)),
@@ -161,7 +176,7 @@ class AdaptiveDropoutHiddenLayer(object):
         self.b = b
         prob = T.dot(input, self.W) + self.b
 
-        prob = T.nnet.sigmoid(alpha * prob + beta)
+        prob = T.nnet.sigmoid(args.alpha * prob + args.beta)
 
         srng = RandomStreams(rng.randint(99999))
         mask = srng.binomial(size = prob.shape, p = prob)
