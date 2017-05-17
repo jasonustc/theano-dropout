@@ -2,7 +2,7 @@
 This is code of bernulli dropout, continuous dropout, dropconnect, 
 adaptive dropout under the settings of Hinton's dropout paper.
 
-[dropout paper](https://www.cs.toronto.edu/~hinton/absps/JMLRdropout.pdf)
+[dropout paper](https://arxiv.org/abs/1207.0580)
 
 [dropconnect paper](http://cs.nyu.edu/~wanli/dropc/)
 
