@@ -18,11 +18,11 @@ from logistic_sgd import LogisticRegression, load_data
 from dropoutmlp import HiddenLayer,DropoutHiddenLayer,_drop_out_from_layer, \
     get_act_function, load_mnist_data, AddLayer
 from rbm import RBM
-import theano.printing
+#import theano.printing
 import argparse
 import copy
-import logging, random
-from sys import stderr
+import random
+#from sys import stderr
 
 class DBN(object):
     def __init__(self, numpy_rng, theano_rng=None, n_ins=784,
@@ -63,7 +63,7 @@ class DBN(object):
             # the first layer
 
             if i == 0:
-                print >> stderr, 'build input layer:'
+                print 'build input layer:'
                 layer_input = self.x
                 if drop_input:
                     ### drop input by 0.2 without change the following dropout
@@ -162,13 +162,13 @@ class DBN(object):
         # compute number of minibatches for training, validation and testing
         n_train_batches = train_set_x.get_value(borrow=True).shape[0]
         n_train_batches /= batch_size
-        print >> stderr, "train batches:", n_train_batches
+        print "train batches:", n_train_batches
         n_valid_batches = valid_set_x.get_value(borrow=True).shape[0]
         n_valid_batches /= batch_size
-        print >> stderr, "valid batches:", n_valid_batches
+        print "valid batches:", n_valid_batches
         n_test_batches = test_set_x.get_value(borrow=True).shape[0]
         n_test_batches /= batch_size
-        print >> stderr, 'test_batches:', n_test_batches
+        print 'test_batches:', n_test_batches
 
         index = T.lscalar('index')  # index to a [mini]batch
         mom=T.scalar('mom')
@@ -215,7 +215,7 @@ class DBN(object):
 
         # Compile theano function for training.  This returns the training cost and
         # updates the model parameters.
-        print stderr, 'dropout:', dropout
+        print 'dropout:', dropout
         output = dropout_cost if dropout else cost
 
         # Compile theano function for training.  This returns the training cost and
@@ -289,7 +289,7 @@ def test_DBN(finetune_lr=1.0, pretraining_epochs=100,
     numpy_rng = numpy.random.RandomState(seed)    #123只是一个随机种子
     if seed == None:
         numpy_rng = numpy.random.RandomState(random.randint(1, 2**30))
-    print stderr, '... building the model'
+    print '... building the model'
     # construct the Deep Belief Network
     dbn = DBN(numpy_rng=numpy_rng, n_ins=28 * 28,
                   hidden_layers_sizes=layers,

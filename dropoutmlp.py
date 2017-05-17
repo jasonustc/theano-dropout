@@ -115,6 +115,7 @@ class DropoutHiddenLayer(HiddenLayer):
             args.drop_type: dropout type name
             args.{p or (mu, sigma) or (a, b)}
         """
+        print 'add dropout layer'
         super(DropoutHiddenLayer, self).__init__(
               rng=rng, input=input,n_in=n_in,n_out=n_out,W=W,b=b,
               args = args, rbm = rbm)#在新式函数中调用超类
@@ -124,6 +125,7 @@ class DropConnectHiddenLayer(object):
     def __init__(self, rng, input, n_in, n_out, W=None, b=None,
                  args=None):
         self.input = input
+        print 'add dropconnect layer'
         activation = get_act_function(args.act_type)
         if W is None:
             W_values = numpy.asarray(rng.uniform(
@@ -156,6 +158,7 @@ class AdaptiveDropoutHiddenLayer(object):
     def __init__(self, rng, input, n_in, n_out, W=None, b=None,
                  args=None):
         self.input = input
+        print 'add adaptive dropout layer'
         activation = get_act_function(args.act_type)
         if W is None:
             W_values = numpy.asarray(rng.uniform(
@@ -177,6 +180,7 @@ class AdaptiveDropoutHiddenLayer(object):
         prob = T.dot(input, self.W) + self.b
 
         prob = T.nnet.sigmoid(args.alpha * prob + args.beta)
+        print 'alpha:', args.alpha, 'beta:', args.beta
 
         srng = RandomStreams(rng.randint(99999))
         mask = srng.binomial(size = prob.shape, p = prob)
