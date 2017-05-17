@@ -1,5 +1,5 @@
 # theano-dropout
-This is code of bernulli dropout, continuous dropout, dropconnect, 
+This is the code of bernulli dropout, continuous dropout, dropconnect, 
 adaptive dropout under the settings of Hinton's dropout paper.
 
 [dropout](https://arxiv.org/abs/1207.0580)
