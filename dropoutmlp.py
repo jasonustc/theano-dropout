@@ -180,6 +180,8 @@ class AdaptiveDropoutHiddenLayer(object):
 
         srng = RandomStreams(rng.randint(99999))
         mask = srng.binomial(size = prob.shape, p = prob)
+#        mask = srng.uniform(size = prob.shape)
+#        mask = mask < prob
         mask  =  T.cast(mask, theano.config.floatX)
 
         lin_output = T.dot(input, self.W) + self.b
